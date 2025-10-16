@@ -27,12 +27,34 @@ export async function register(req, res, next) {
 const loginSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().required()
-});
+})
 
 // TODO: implement login function
 export async function login(req, res, next) {
- 
+  try {
+    // 1️⃣ Validate request body
+    const { value, error } = loginSchema.validate(req.body);
+    if (error) return res.status(400).json({ message: error.message });
+
+    // 2️⃣ Find user by email
+    const user = await User.findOne({ email: value.email });
+    if (!user) return res.status(401).json({ message: 'Invalid email or password' });
+
+    // 3️⃣ Compare password
+    const valid = await bcrypt.compare(value.password, user.passwordHash);
+    if (!valid) return res.status(401).json({ message: 'Invalid email or password' });
+
+    // 4️⃣ Sign a new token
+    const token = signToken(user);
+
+    // 5️⃣ Respond with token + public user info
+    res.json({ token, user: publicUser(user) });
+
+  } catch (err) {
+    next(err);
+  }
 }
+
 
 export async function me(req, res) {
   const user = await User.findById(req.user.id).lean();
